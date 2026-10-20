@@ -80,6 +80,10 @@ To add a reaction, create an `rx-*.js` module that default-exports `{ ui, atomic
 
 The orbitals are hydrogen-like wavefunctions with Slater effective charges. That is exact for hydrogen and a good qualitative picture for the other elements, but not a full quantum-chemistry calculation. In the reactions, bonds and lone pairs are drawn as approximate Gaussian-shaped clouds. Reaction timings are sped up, and some instrument readings (resistance, luminescence) are typical values, not measurements.
 
+## Commit conventions
+
+Do not add `Co-Authored-By` trailers (or any other AI attribution lines) to commit messages in this repository. This applies to people and to AI coding assistants alike.
+
 ## Deployment
 
 The site is served by GitHub Pages from the `main` branch of this repository. Every push to `main` redeploys it within a minute or so.
