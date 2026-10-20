@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atomic Orbitals</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: rgba(14, 18, 30, 0.82);
+    --border: rgba(140, 160, 220, 0.18);
+    --text: #dfe6f5;
+    --muted: #8b96b3;
+    --accent: #4fb3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; backdrop-filter: blur(8px); padding: 14px 16px; }
+  #controls { top: 16px; left: 16px; width: 300px; max-height: calc(100% - 32px); overflow-y: auto; }
+  #plotPanel { right: 16px; bottom: 16px; width: 400px; }
+  #info { top: 16px; right: 16px; width: 320px; max-height: calc(100% - 330px); overflow-y: auto; }
+  h1 { font-size: 16px; margin: 0 0 2px; letter-spacing: .3px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+    margin: 14px 0 6px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; }
+  label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .tag { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  button { background: #1c2440; color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; font: inherit; margin-top: 8px; width: 100%; }
+  button:hover { background: #26305a; }
+  /* element picker: its own horizontal scroller, pinned to the top of the column */
+  .elements { display: flex; gap: 6px; overflow-x: auto; overscroll-behavior: contain; scroll-snap-type: x proximity;
+    position: sticky; top: -14px; z-index: 2; margin: -14px -16px 10px; padding: 14px 16px 8px; background: #0e121e;
+    scrollbar-width: thin; scrollbar-color: #3a4a8a transparent; }
+  .elements button { margin: 0; width: auto; flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 4px 6px; line-height: 1.15; flex: 1 0 auto; scroll-snap-align: start; }
+  .elements button b { font-size: 18px; }
+  .elements button small { font-size: 10px; color: var(--muted); margin-top: 10px; }
+  .elements button.on { background: #3a4a8a; border-color: #6d82d6; }
+  .mini { display: flex; gap: 6px; }
+  .mini button { margin-top: 2px; padding: 3px 6px; font-size: 11px; }
+  .orb { display: flex; align-items: center; gap: 6px; }
+  .orb label { flex: 1; min-width: 0; }
+  .orb select { background: #141a2e; color: var(--text); border: 1px solid var(--border); border-radius: 5px;
+    font: 11px system-ui; padding: 1px 2px; max-width: 108px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; padding-bottom: 3px; }
+  th:not(:first-child), td:not(:first-child) { text-align: right; }
+  td { padding: 1px 0; font-variant-numeric: tabular-nums; }
+  td:not(:first-child) { color: var(--muted); }
+  .plot-head { display: flex; align-items: center; gap: 10px; }
+  .plot-head h2 { margin: 0; flex: 1; }
+  #plotToggle { width: 24px; height: 22px; margin: 0; padding: 0; line-height: 1; font-size: 15px; flex: none; }
+  #plotPanel.min { width: auto; padding: 8px 10px 8px 14px; cursor: pointer; }
+  #plotPanel.min #plotBody { display: none; }
+  body.plot-min #info { max-height: calc(100% - 90px); }
+  canvas#plot { margin-top: 6px;  width: 100%; height: 210px; display: block; }
+  .legend { display: flex; gap: 4px 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .config { font-family: ui-monospace, monospace; font-size: 15px; margin: 6px 0; }
+  .note { font-size: 12px; color: #c9d3ea; background: rgba(79,179,255,0.08); border-left: 2px solid var(--accent);
+    padding: 6px 8px; border-radius: 4px; margin-top: 8px; }
+  @media (max-width: 900px) { #info { display: none; } #plotPanel { width: calc(100% - 32px); left: 16px; }
+    #controls { width: calc(100% - 32px); max-height: 45%; top: 64px; } }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="controls" class="panel">
+  <div class="elements" id="elements"></div>
+  <h1 id="elName"></h1>
+  <div class="sub">Orbital probability clouds: Monte-Carlo samples of |ψ|²</div>
+  <div class="config" id="elConfig"></div>
+
+  <h2>Subshells</h2>
+  <div class="mini"><button id="showAll">show all</button><button id="showNone">hide all</button><button id="showValence">valence only</button></div>
+  <div id="orbList"></div>
+
+  <h2>Display</h2>
+  <label><input type="checkbox" id="logScale">Logarithmic radial scale</label>
+  <label><input type="checkbox" id="autoZoom" checked>Auto-zoom to visible subshells</label>
+  <label><input type="checkbox" id="phase">Color by wavefunction phase (±)</label>
+  <label><input type="checkbox" id="cut">Cutaway (remove front half)</label>
+  <label><input type="checkbox" id="nodes">Show radial node spheres</label>
+  <label><input type="checkbox" id="spin" checked>Auto-rotate</label>
+  <label><input type="checkbox" id="axes">Show axes</label>
+
+  <h2>Samples per subshell</h2>
+  <input type="range" id="count" min="5000" max="250000" step="5000" value="80000">
+  <div class="row"><span>5k</span><span id="countVal"></span><span>250k</span></div>
+
+  <h2>Point size / brightness</h2>
+  <input type="range" id="size" min="0.3" max="3" step="0.05" value="1">
+  <input type="range" id="opacity" min="0.05" max="1" step="0.01" value="0.35">
+
+  <button id="resample">Resample clouds</button>
+</div>
+
+<div id="info" class="panel">
+  <h2 style="margin-top:0">Model</h2>
+  <div class="sub">Hydrogen-like orbitals ψ<sub>nlm</sub> = R<sub>nl</sub>(r)·Y<sub>lm</sub>(θ,φ). Each subshell's effective nuclear charge Z<sub>eff</sub> comes from Slater's screening rules. Each dot is one random sample of an electron position drawn from |ψ|². A filled subshell is spherically symmetric (Unsöld's theorem), so it is shown as "all m". Partly filled subshells can show a single real orbital. Distances are in Bohr radii (a₀ = 52.9 pm).</div>
+  <div id="elNote"></div>
+  <h2>Subshells</h2>
+  <table id="zTable"></table>
+  <h2>Nucleus</h2>
+  <div class="sub" id="nucText"></div>
+  <h2>Controls</h2>
+  <div class="sub">Drag to rotate · scroll to zoom · right-drag to pan</div>
+</div>
+
+<div id="plotPanel" class="panel">
+  <div class="plot-head">
+    <h2 id="plotTitle"></h2>
+    <button id="plotToggle" title="Minimise chart" aria-expanded="true">–</button>
+  </div>
+  <div id="plotBody">
+    <canvas id="plot"></canvas>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="main.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

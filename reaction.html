@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactions</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: rgba(14, 18, 30, 0.84);
+    --border: rgba(140, 160, 220, 0.18);
+    --text: #dfe6f5;
+    --muted: #8b96b3;
+    --accent: #ffb347;
+    --link: #4fb3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; backdrop-filter: blur(8px); padding: 14px 16px; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+    margin: 14px 0 6px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; }
+  a { color: var(--link); }
+  label { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  button, select { background: #1c2440; color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; font: inherit; }
+  button:hover, select:hover { background: #26305a; }
+  button.on { background: #3a4a8a; border-color: #6d82d6; }
+  input[type=range] { accent-color: var(--accent); }
+
+  #topbar { top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+    padding: 8px 10px; white-space: nowrap; }
+  #topbar .sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+  .speed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .speed input { width: 80px; }
+  .speed span { min-width: 30px; font-variant-numeric: tabular-nums; }
+
+  #stagePanel { top: 74px; left: 16px; width: 340px; max-height: calc(100% - 180px); overflow-y: auto; }
+  #stageTitle { font-size: 15px; font-weight: 600; color: var(--accent); margin: 2px 0 6px; }
+  #stageDesc { font-size: 13px; }
+  .eq { font-family: ui-monospace, monospace; font-size: 14px; margin: 4px 0 2px; }
+  ol#route { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
+  ol#route li { padding: 1px 0; transition: color .2s; }
+  ol#route li.active { color: var(--accent); font-weight: 600; }
+  ol#route li.done { color: #c9a777; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 1px 0 1px 26px; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  #timeline { left: 16px; right: 16px; bottom: 16px; padding: 10px 16px 12px; display: flex; align-items: center; gap: 16px; }
+  #timeline .playback { display: flex; align-items: center; gap: 6px; flex: none; }
+  #timeline .playback button { width: 34px; padding: 5px 0; }
+  #timeline .track { position: relative; height: 26px; flex: 1; }
+  #timeline.compact { right: auto; left: 50%; transform: translateX(-50%); padding: 8px 12px; }
+  #timeline.compact .track { display: none; }
+  #timeline .track input { width: 100%; margin: 0; position: absolute; top: 4px; }
+  #ticks { position: absolute; left: 0; right: 0; top: 0; height: 26px; pointer-events: none; }
+  #ticks span { position: absolute; top: 20px; font-size: 11px; color: var(--muted); transform: translateX(-2px); }
+  #ticks i { position: absolute; top: 0; width: 1px; height: 8px; background: var(--muted); }
+
+  #macroPanel { top: 74px; left: 16px; width: 390px; display: none; max-height: calc(100% - 90px); overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 3px 0; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .bar { height: 6px; background: #1c2440; border-radius: 3px; overflow: hidden; margin-top: 3px; }
+  .bar div { height: 100%; background: var(--accent); width: 0; }
+
+  .atom-label { font: 600 12px system-ui; color: #fff; text-shadow: 0 0 4px #000, 0 0 2px #000;
+    transform: translateY(-18px); pointer-events: none; }
+  .atom-label.ion { color: #ffe08a; }
+
+  /* testing kit */
+  .kit-locked { font-size: 12px; color: var(--muted); background: rgba(255,255,255,0.03); border: 1px dashed var(--border);
+    border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
+  .kit-btn { width: 100%; margin-top: 8px; font-size: 13px; padding: 7px 10px; }
+  .kit-clean { background: #23406a; border-color: #4f7fc0; font-weight: 600; }
+  .kit-tools { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; display: grid; gap: 4px; }
+  .kit-tools li { padding: 6px 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; }
+  .kit-log { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; max-height: 320px; overflow-y: auto; }
+  .kit-log li { padding: 3px 0; border-bottom: 1px solid rgba(140,160,220,0.08); }
+  .kit-log .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin: 0 2px; border: 1px solid rgba(255,255,255,0.3); }
+  .ph-chart { display: flex; margin-top: 10px; border-radius: 4px; overflow: hidden; }
+  .ph-chart span { flex: 1; text-align: center; font-size: 11px; color: #fff; padding: 5px 0; text-shadow: 0 0 2px #000; transition: transform .2s; }
+  .ph-chart span.hit { outline: 2px solid #fff; outline-offset: -2px; transform: scaleY(1.35); font-weight: 700; }
+  .ph-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  .kit-toast { position: fixed; left: calc(50% + 200px); top: 84px; transform: translate(-50%, -10px); max-width: min(560px, calc(100% - 440px));
+    background: rgba(10,13,22,0.94); border: 1px solid #4f7fc0; border-radius: 10px; padding: 10px 14px; font-size: 14px;
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 9; }
+  .kit-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .kit-toast.right { left: auto; right: 16px; top: 230px; max-width: 360px; transform: translate(0, -10px); }
+  .kit-toast.right.show { transform: translate(0, 0); }
+  .kit-toast .sw { display: inline-block; width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin: 0 2px; border: 1px solid rgba(255,255,255,0.3); }
+  @media (max-width: 900px) { .kit-toast { left: 50%; max-width: calc(100% - 32px); } }
+  .tool-tip { position: fixed; display: none; pointer-events: none; z-index: 10; background: rgba(10,13,22,0.92);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; max-width: 240px; }
+
+  #hint { right: 16px; top: 74px; font-size: 12px; color: var(--muted); padding: 8px 12px; }
+
+  @media (max-width: 900px) {
+    #stagePanel, #macroPanel { width: calc(100% - 32px); max-height: 38%; }
+    #hint { display: none; }
+    #topbar { flex-wrap: wrap; width: calc(100% - 32px); justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="topbar" class="panel">
+  <select id="rxSelect" title="Reaction"></select>
+  <span class="sep"></span>
+  <button id="modeAtomic" class="on">⚛ Atomic view</button>
+  <button id="modeMacro">👁 Naked-eye view</button>
+</div>
+
+<!-- Atomic view -->
+<div id="stagePanel" class="panel">
+  <h1 id="rxTitle"></h1>
+  <div class="eq" id="rxEq"></div>
+  <div id="stageTitle"></div>
+  <div id="stageDesc"></div>
+
+  <h2 id="routeTitle"></h2>
+  <ol id="route"></ol>
+
+  <h2>Electron clouds (click to toggle)</h2>
+  <div id="legend"></div>
+
+  <h2>Display</h2>
+  <label><input type="checkbox" id="spin">Auto-rotate</label>
+  <label><input type="checkbox" id="labels" checked>Atom labels</label>
+  <label id="sticksRow"><input type="checkbox" id="sticks" checked>Bond sticks (single / double / triple)</label>
+  <div class="sub" style="margin-top:4px">Cloud brightness</div>
+  <input type="range" id="opacity" min="0.05" max="1" step="0.01" value="0.55" style="width:100%">
+  <div class="sub">Point size</div>
+  <input type="range" id="size" min="0.4" max="3" step="0.05" value="1.6" style="width:100%">
+
+  <div class="foot" id="rxFoot"></div>
+</div>
+
+<div id="hint" class="panel">Drag to rotate · scroll to zoom · right-drag to pan</div>
+
+<div id="timeline" class="panel">
+  <div class="playback">
+    <button id="play" title="Pause / play">❚❚</button>
+    <button id="restart" title="Restart">↺</button>
+    <span class="speed"><input type="range" id="speed" min="0.25" max="3" step="0.05" value="1" title="Playback speed"><span id="speedVal">1.0×</span></span>
+  </div>
+  <div class="track">
+    <div id="ticks"></div>
+    <input type="range" id="scrub" min="0" max="100" step="0.01" value="0">
+  </div>
+</div>
+
+<!-- Naked-eye view -->
+<div id="macroPanel" class="panel">
+  <h1 id="mxTitle"></h1>
+  <div class="sub" id="mxSub"></div>
+  <h2>Observations</h2>
+  <div class="sub" id="mxObs"></div>
+  <h2>Experiment</h2>
+  <div id="mxControls"></div>
+  <h2>Measurements</h2>
+  <table id="mxTable"></table>
+  <div class="bar"><div id="mBar"></div></div>
+  <div class="foot" id="mxFoot"></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+  import { start } from './reaction-engine.js';
+  start();
+</script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

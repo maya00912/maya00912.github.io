@@ -1,0 +1,20 @@
+# dependencies (none needed today; the pages load three.js from a CDN)
+node_modules/
+
+# logs and test output
+*.log
+npm-debug.log*
+screenshots/
+*.png
+
+# editor / OS files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# local environment
+.env
+.env.*
